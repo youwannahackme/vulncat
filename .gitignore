@@ -1,0 +1,25 @@
+# Compiled binaries
+vulncat
+vulncat.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Output results and logs
+urlclass_out/
+results/
+*.log
+report.json
+report.jsonl
+*.txt
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
