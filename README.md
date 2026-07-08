@@ -103,6 +103,9 @@ Category Filters:
   -nosqli    Scan only for NoSQL Injection vulnerability surface
   -cors      Scan only for CORS Misconfiguration vulnerability surface
   -jwt       Scan only for JWT Injection vulnerability surface
+  -privesc   Scan only for Privilege Escalation vulnerability surface
+  -xxe       Scan only for XML External Entity vulnerability surface
+  -proto     Scan only for Prototype Pollution vulnerability surface
   -cat       Comma-separated list of categories to scan (e.g. -cat sqli,xss)
 ```
 

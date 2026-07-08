@@ -8,13 +8,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
-	"unsafe"
+
+	"github.com/youwannahackme/vulncat/classifier"
 )
 
 const (
@@ -56,33 +55,7 @@ func getCategoryColor(cat string) string {
 }
 
 func init() {
-	if runtime.GOOS == "windows" {
-		// Use lazy-loaded kernel32.dll to dynamically enable Virtual Terminal processing.
-		// This avoids compilation errors on non-Windows systems where syscall.SetConsoleMode is undefined.
-		kernel32 := syscall.NewLazyDLL("kernel32.dll")
-		setConsoleMode := kernel32.NewProc("SetConsoleMode")
-		getConsoleMode := kernel32.NewProc("GetConsoleMode")
-
-		handleOut, err := syscall.GetStdHandle(syscall.STD_OUTPUT_HANDLE)
-		if err == nil {
-			var mode uint32
-			r, _, errCall := getConsoleMode.Call(uintptr(handleOut), uintptr(unsafe.Pointer(&mode)))
-			if r != 0 && errCall == nil || errCall.Error() == "The operation completed successfully." {
-				mode |= 0x0004 // ENABLE_VIRTUAL_TERMINAL_PROCESSING
-				_, _, _ = setConsoleMode.Call(uintptr(handleOut), uintptr(mode))
-			}
-		}
-
-		handleErr, err := syscall.GetStdHandle(syscall.STD_ERROR_HANDLE)
-		if err == nil {
-			var mode uint32
-			r, _, errCall := getConsoleMode.Call(uintptr(handleErr), uintptr(unsafe.Pointer(&mode)))
-			if r != 0 && errCall == nil || errCall.Error() == "The operation completed successfully." {
-				mode |= 0x0004 // ENABLE_VIRTUAL_TERMINAL_PROCESSING
-				_, _, _ = setConsoleMode.Call(uintptr(handleErr), uintptr(mode))
-			}
-		}
-	}
+	initConsole()
 }
 
 // DedupKey represents the host, path, category, and parameter name to limit matching redundancy
@@ -115,14 +88,14 @@ type Job struct {
 // Result holds the classification outcomes or any parsing errors
 type Result struct {
 	URL  string
-	Hits URLClassification
+	Hits classifier.URLClassification
 	Err  error
 }
 
 // ReportEntry defines the JSON output schema
 type ReportEntry struct {
-	URL        string            `json:"url"`
-	Categories URLClassification `json:"categories"`
+	URL        string                       `json:"url"`
+	Categories classifier.URLClassification `json:"categories"`
 }
 
 // CategoryConfidencePair maps a URL to its classification confidence for sorting
@@ -153,6 +126,9 @@ func main() {
 		nosqliFlag   bool
 		corsFlag     bool
 		jwtFlag      bool
+		privescFlag  bool
+		xxeFlag      bool
+		protoFlag    bool
 		categoryFlag string
 	)
 
@@ -188,6 +164,9 @@ func main() {
 	flag.BoolVar(&nosqliFlag, "nosqli", false, "Scan only for NoSQL Injection vulnerability surface")
 	flag.BoolVar(&corsFlag, "cors", false, "Scan only for CORS Misconfiguration vulnerability surface")
 	flag.BoolVar(&jwtFlag, "jwt", false, "Scan only for JWT Injection vulnerability surface")
+	flag.BoolVar(&privescFlag, "privesc", false, "Scan only for Privilege Escalation vulnerability surface")
+	flag.BoolVar(&xxeFlag, "xxe", false, "Scan only for XML External Entity vulnerability surface")
+	flag.BoolVar(&protoFlag, "proto", false, "Scan only for Prototype Pollution vulnerability surface")
 	flag.StringVar(&categoryFlag, "cat", "", "Comma-separated list of categories to scan for (e.g. sqli,xss)")
 
 	flag.Usage = func() {
@@ -196,7 +175,7 @@ func main() {
 		}
 		fmt.Fprint(os.Stderr, "\nDescription:\n")
 		fmt.Fprint(os.Stderr, "  Vulncat is a high-performance vulnerability-surface URL classifier.\n")
-		fmt.Fprint(os.Stderr, "  It scans query parameters and path segments for heuristics indicating XSS, SQLi, SSRF, LFI, RCE, IDOR, Redirect, SSTI, NoSQLi, CORS, and JWT.\n\n")
+		fmt.Fprint(os.Stderr, "  It scans query parameters and path segments for heuristics indicating XSS, SQLi, SSRF, LFI, RCE, IDOR, Redirect, SSTI, NoSQLi, CORS, JWT, PrivEsc, XXE, and Proto.\n\n")
 
 		fmt.Fprint(os.Stderr, "Usage:\n")
 		fmt.Fprint(os.Stderr, "  vulncat [options]\n\n")
@@ -222,6 +201,9 @@ func main() {
 		fmt.Fprint(os.Stderr, "  -nosqli                 Scan only for NoSQL Injection surface\n")
 		fmt.Fprint(os.Stderr, "  -cors                   Scan only for CORS Misconfiguration surface\n")
 		fmt.Fprint(os.Stderr, "  -jwt                    Scan only for JWT surface\n")
+		fmt.Fprint(os.Stderr, "  -privesc                Scan only for Privilege Escalation surface\n")
+		fmt.Fprint(os.Stderr, "  -xxe                    Scan only for XML External Entity (XXE) surface\n")
+		fmt.Fprint(os.Stderr, "  -proto                  Scan only for Prototype Pollution surface\n")
 		fmt.Fprint(os.Stderr, "  -cat <string>           Comma-separated list of categories to scan (e.g. sqli,xss)\n\n")
 
 		fmt.Fprint(os.Stderr, "Output Options:\n")
@@ -276,6 +258,15 @@ func main() {
 	if jwtFlag {
 		activeCategories["jwt"] = true
 	}
+	if privescFlag {
+		activeCategories["privesc"] = true
+	}
+	if xxeFlag {
+		activeCategories["xxe"] = true
+	}
+	if protoFlag {
+		activeCategories["proto"] = true
+	}
 
 	if categoryFlag != "" {
 		parts := strings.Split(categoryFlag, ",")
@@ -289,7 +280,7 @@ func main() {
 
 	// Default to all categories if no filters are supplied
 	if len(activeCategories) == 0 {
-		for _, cat := range Categories {
+		for _, cat := range classifier.Categories {
 			activeCategories[cat.Name] = true
 		}
 	}
@@ -356,7 +347,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for u := range jobs {
-				hits, err := ClassifyURL(u, minConfidenceFlag, activeCategories)
+				hits, err := classifier.ClassifyURL(u, minConfidenceFlag, activeCategories)
 				results <- Result{URL: u, Hits: hits, Err: err}
 			}
 		}()
@@ -386,7 +377,7 @@ func main() {
 
 		entry := ReportEntry{
 			URL:        res.URL,
-			Categories: make(URLClassification),
+			Categories: make(classifier.URLClassification),
 		}
 
 		hasNewHit := false
@@ -452,7 +443,7 @@ func main() {
 	}
 
 	// Write category specific output files (sorted by confidence descending)
-	for _, cat := range Categories {
+	for _, cat := range classifier.Categories {
 		entries, exists := categoryURLs[cat.Name]
 		if !exists || len(entries) == 0 {
 			continue
@@ -514,7 +505,7 @@ func main() {
 	if !silentFlag {
 		fmt.Printf("\n%s[+] Processed %d URLs, skipped %d malformed%s\n", colorBold, atomic.LoadInt64(&totalInputCount), atomic.LoadInt64(&skippedCount), colorReset)
 		fmt.Printf("%s[+] %d URLs tagged with at least one category%s\n", colorBold, len(report), colorReset)
-		for _, cat := range Categories {
+		for _, cat := range classifier.Categories {
 			count := len(categoryURLs[cat.Name])
 			txtPath := filepath.Join(outputFlag, cat.Name+".txt")
 			tagColor := getCategoryColor(cat.Name)
