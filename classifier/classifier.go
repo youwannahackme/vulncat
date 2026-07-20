@@ -57,6 +57,9 @@ var (
 // Helper word lists
 var commandWords = map[string]bool{
 	"ping": true, "ls": true, "whoami": true, "id": true, "cat": true,
+	"curl": true, "wget": true, "sh": true, "bash": true, "powershell": true,
+	"cmd": true, "dir": true, "ifconfig": true, "ipconfig": true, "netstat": true,
+	"python": true, "perl": true, "ruby": true, "php": true,
 }
 
 var pathExtensions = map[string]bool{
@@ -80,27 +83,37 @@ var pathExtensions = map[string]bool{
 
 // unquote is a forgiving path-unescape wrapper (similar to urllib.parse.unquote)
 func unquote(v string) string {
-	if !strings.Contains(v, "%") {
-		return v
+	for i := 0; i < 3; i++ {
+		if !strings.Contains(v, "%") {
+			break
+		}
+		decoded, err := url.PathUnescape(v)
+		if err != nil || decoded == v {
+			break
+		}
+		v = decoded
 	}
-	decoded, err := url.PathUnescape(v)
-	if err != nil {
-		return v
-	}
-	return decoded
+	return v
 }
 
 // Value shape heuristic check functions
 func isNumeric(v string) bool {
-	if len(v) == 0 {
+	dv := strings.TrimSpace(unquote(v))
+	if len(dv) == 0 {
 		return false
 	}
-	for i := 0; i < len(v); i++ {
-		if v[i] < '0' || v[i] > '9' {
+	if (dv[0] == '-' || dv[0] == '+') && len(dv) > 1 {
+		dv = dv[1:]
+	}
+	hasDigits := false
+	for i := 0; i < len(dv); i++ {
+		if dv[i] >= '0' && dv[i] <= '9' {
+			hasDigits = true
+		} else {
 			return false
 		}
 	}
-	return true
+	return hasDigits
 }
 
 func isURLLike(v string) bool {
@@ -152,8 +165,15 @@ func isTextLike(v string) bool {
 }
 
 func isCommandLike(v string) bool {
-	dv := unquote(v)
+	dv := strings.TrimSpace(unquote(v))
 	if strings.ContainsAny(dv, ";&|`$") {
+		return true
+	}
+	splitter := func(r rune) bool {
+		return r == ' ' || r == '\t' || r == '\n' || r == '+' || r == ',' || r == '='
+	}
+	fields := strings.FieldsFunc(strings.ToLower(dv), splitter)
+	if len(fields) > 0 && commandWords[fields[0]] {
 		return true
 	}
 	return commandWords[strings.ToLower(dv)]
@@ -161,12 +181,12 @@ func isCommandLike(v string) bool {
 
 func isTemplateLike(v string) bool {
 	dv := unquote(v)
-	return strings.Contains(dv, "${") || strings.Contains(dv, "{{") || strings.Contains(dv, "<%") || strings.Contains(dv, "#{")
+	return strings.Contains(dv, "${") || strings.Contains(dv, "{{") || strings.Contains(dv, "<%") || strings.Contains(dv, "#{") || strings.Contains(dv, "*{") || strings.Contains(dv, "[[")
 }
 
 func isNoSQLLike(v string) bool {
 	dv := unquote(v)
-	return strings.Contains(dv, "$ne") || strings.Contains(dv, "$gt") || strings.Contains(dv, "$lt") || strings.Contains(dv, "$in") || strings.Contains(dv, "$regex") || strings.Contains(dv, "$where") || strings.Contains(dv, "$eq")
+	return strings.Contains(dv, "$ne") || strings.Contains(dv, "$gt") || strings.Contains(dv, "$lt") || strings.Contains(dv, "$in") || strings.Contains(dv, "$regex") || strings.Contains(dv, "$where") || strings.Contains(dv, "$eq") || strings.Contains(dv, "$exists") || strings.Contains(dv, "$or") || strings.Contains(dv, "$and") || strings.Contains(dv, "$nin")
 }
 
 func isJWTLike(v string) bool {
@@ -209,6 +229,10 @@ func isXMLLike(v string) bool {
 func isJSONLike(v string) bool {
 	dv := strings.TrimSpace(unquote(v))
 	return (strings.HasPrefix(dv, "{") && strings.HasSuffix(dv, "}")) || (strings.HasPrefix(dv, "[") && strings.HasSuffix(dv, "]"))
+}
+
+func isJSONOrBoolean(v string) bool {
+	return isJSONLike(v) || isRoleOrBoolean(v)
 }
 
 // Category configuration
@@ -428,7 +452,7 @@ var Categories = []CategoryConfig{
 		WeakParams: map[string]bool{
 			"config": true, "settings": true, "options": true, "query": true,
 		},
-		ValueShape: isJSONLike,
+		ValueShape: isJSONOrBoolean,
 		PathContext: []string{
 			"api", "config", "parse", "merge", "extend", "json",
 		},
@@ -460,6 +484,22 @@ func cleanParamName(name string) string {
 	return name
 }
 
+func isStrongParam(cfg CategoryConfig, cleanName string, paramLower string) bool {
+	if cfg.StrongParams[cleanName] || cfg.StrongParams[paramLower] {
+		return true
+	}
+	for k := range cfg.StrongParams {
+		if (strings.Contains(k, "[") || strings.Contains(k, ".")) && strings.Contains(paramLower, k) {
+			return true
+		}
+	}
+	return false
+}
+
+func isWeakParam(cfg CategoryConfig, cleanName string, paramLower string) bool {
+	return cfg.WeakParams[cleanName] || cfg.WeakParams[paramLower]
+}
+
 // ClassifyParam scores a parameter based on a category config
 func ClassifyParam(category string, paramName string, paramValue string, pathLower string) (int, []string) {
 	cfg, ok := CategoriesMap[category]
@@ -473,15 +513,15 @@ func ClassifyParam(category string, paramName string, paramValue string, pathLow
 	// Clean parameter name for dictionary lookup (e.g. filter[username] -> filter)
 	cleanName := cleanParamName(paramLower)
 
-	if cfg.StrongParams[cleanName] {
+	if isStrongParam(cfg, cleanName, paramLower) {
 		score += StrongParamScore
 		reasons = append(reasons, fmt.Sprintf("param '%s' is a known %s sink", paramName, category))
-	} else if cfg.WeakParams[cleanName] {
+	} else if isWeakParam(cfg, cleanName, paramLower) {
 		score += WeakParamScore
 		reasons = append(reasons, fmt.Sprintf("param '%s' is a weak %s indicator", paramName, category))
 	} else {
 		// Special case for NoSQLi: if the param name itself contains a NoSQL operator
-		if category == "nosqli" && (strings.Contains(paramLower, "[$ne]") || strings.Contains(paramLower, "[$gt]") || strings.Contains(paramLower, "[$lt]") || strings.Contains(paramLower, "[$in]") || strings.Contains(paramLower, "[$regex]")) {
+		if category == "nosqli" && (strings.Contains(paramLower, "[$ne]") || strings.Contains(paramLower, "[$gt]") || strings.Contains(paramLower, "[$lt]") || strings.Contains(paramLower, "[$in]") || strings.Contains(paramLower, "[$regex]") || strings.Contains(paramLower, "[$where]") || strings.Contains(paramLower, "[$eq]") || strings.Contains(paramLower, "[$exists]")) {
 			score += StrongParamScore
 			reasons = append(reasons, fmt.Sprintf("param '%s' contains NoSQL operator", paramName))
 		} else if category == "proto" && (strings.Contains(paramLower, "__proto__") || strings.Contains(paramLower, "constructor[prototype]") || strings.Contains(paramLower, "constructor.prototype")) {
@@ -493,7 +533,16 @@ func ClassifyParam(category string, paramName string, paramValue string, pathLow
 		}
 	}
 
+	valueShapeMatch := false
 	if paramValue != "" && cfg.ValueShape(paramValue) {
+		valueShapeMatch = true
+	} else if category == "nosqli" && (strings.Contains(paramLower, "[$ne]") || strings.Contains(paramLower, "[$gt]") || strings.Contains(paramLower, "[$lt]") || strings.Contains(paramLower, "[$in]") || strings.Contains(paramLower, "[$regex]") || strings.Contains(paramLower, "[$where]") || strings.Contains(paramLower, "[$eq]") || strings.Contains(paramLower, "[$exists]")) {
+		valueShapeMatch = true
+	} else if category == "proto" && (strings.Contains(paramLower, "__proto__") || strings.Contains(paramLower, "constructor[prototype]") || strings.Contains(paramLower, "constructor.prototype")) {
+		valueShapeMatch = true
+	}
+
+	if valueShapeMatch {
 		score += ValueShapeBonus
 		reasons = append(reasons, fmt.Sprintf("value shape matches %s pattern", category))
 	}
@@ -653,7 +702,9 @@ func ClassifyURL(rawURL string, minConfidence int, activeCategories map[string]b
 	params := parseQsl(parsed.RawQuery)
 	var filteredParams [][2]string
 	for _, pair := range params {
-		if !TrackingParams[strings.ToLower(pair[0])] {
+		keyLower := strings.ToLower(pair[0])
+		cleanKey := cleanParamName(keyLower)
+		if !TrackingParams[keyLower] && !TrackingParams[cleanKey] {
 			filteredParams = append(filteredParams, pair)
 		}
 	}

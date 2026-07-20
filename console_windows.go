@@ -15,20 +15,20 @@ func initConsole() {
 	getConsoleMode := kernel32.NewProc("GetConsoleMode")
 
 	handleOut, err := syscall.GetStdHandle(syscall.STD_OUTPUT_HANDLE)
-	if err == nil {
+	if err == nil && handleOut != syscall.InvalidHandle && handleOut != 0 {
 		var mode uint32
 		r, _, errCall := getConsoleMode.Call(uintptr(handleOut), uintptr(unsafe.Pointer(&mode)))
-		if r != 0 && errCall == nil || errCall.Error() == "The operation completed successfully." {
+		if r != 0 && (errCall == nil || errCall.Error() == "The operation completed successfully.") {
 			mode |= 0x0004 // ENABLE_VIRTUAL_TERMINAL_PROCESSING
 			_, _, _ = setConsoleMode.Call(uintptr(handleOut), uintptr(mode))
 		}
 	}
 
 	handleErr, err := syscall.GetStdHandle(syscall.STD_ERROR_HANDLE)
-	if err == nil {
+	if err == nil && handleErr != syscall.InvalidHandle && handleErr != 0 {
 		var mode uint32
 		r, _, errCall := getConsoleMode.Call(uintptr(handleErr), uintptr(unsafe.Pointer(&mode)))
-		if r != 0 && errCall == nil || errCall.Error() == "The operation completed successfully." {
+		if r != 0 && (errCall == nil || errCall.Error() == "The operation completed successfully.") {
 			mode |= 0x0004 // ENABLE_VIRTUAL_TERMINAL_PROCESSING
 			_, _, _ = setConsoleMode.Call(uintptr(handleErr), uintptr(mode))
 		}

@@ -170,4 +170,76 @@ func TestClassifyURLNoiseFiltering(t *testing.T) {
 	if res != nil {
 		t.Errorf("expected tracking parameter fbclid to be filtered out, but got: %v", res)
 	}
+
+	// 3. Bracketed tracking parameters should also be ignored
+	res, err = ClassifyURL("https://example.com/search?utm_source[0]=xyz", 40, active)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res != nil {
+		t.Errorf("expected bracketed tracking parameter utm_source[0] to be filtered out, but got: %v", res)
+	}
+}
+
+func TestClassifyURLEdgeCases(t *testing.T) {
+	active := map[string]bool{}
+	for _, c := range Categories {
+		active[c.Name] = true
+	}
+
+	tests := []struct {
+		name             string
+		url              string
+		minConfidence    int
+		expectedCategory string
+		expectedMinConf  int
+	}{
+		{
+			name:             "Double encoded LFI traversal",
+			url:              "https://example.com/view?file=%252e%252e%252f%252e%252e%252fetc/passwd",
+			minConfidence:    40,
+			expectedCategory: "lfi",
+			expectedMinConf:  70, // strong param (40) + double-decoded path shape (30)
+		},
+		{
+			name:             "Negative signed numeric IDOR",
+			url:              "https://example.com/account?invoice_id=-456",
+			minConfidence:    40,
+			expectedCategory: "idor",
+			expectedMinConf:  90, // strong param (40) + signed numeric shape (30) + IDOR bonus (20)
+		},
+		{
+			name:             "Command execution with arguments",
+			url:              "https://example.com/run?cmd=ping+-c+4+127.0.0.1",
+			minConfidence:    40,
+			expectedCategory: "rce",
+			expectedMinConf:  70, // strong param (40) + command with args shape (30)
+		},
+		{
+			name:             "Prototype pollution constructor[prototype]",
+			url:              "https://example.com/config?constructor[prototype][isAdmin]=true",
+			minConfidence:    40,
+			expectedCategory: "proto",
+			expectedMinConf:  70, // strong param key (40) + value shape boolean (30)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := ClassifyURL(tt.url, tt.minConfidence, active)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if res == nil {
+				t.Fatalf("expected classification result, got nil")
+			}
+			result, ok := res[tt.expectedCategory]
+			if !ok {
+				t.Fatalf("expected category %s not found in results: %v", tt.expectedCategory, res)
+			}
+			if result.Confidence < tt.expectedMinConf {
+				t.Errorf("expected confidence >= %d, got %d", tt.expectedMinConf, result.Confidence)
+			}
+		})
+	}
 }

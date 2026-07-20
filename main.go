@@ -28,17 +28,19 @@ const (
 	colorBold   = "\033[1m"
 )
 
-const Banner = colorCyan + `
- ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗ ██████╗  █████╗ ████████╗
- ██║   ██║██║   ██║██║     ████╗  ██║██╔════╝ ██╔══██╗╚══██╔══╝
- ██║   ██║██║   ██║██║     ██╔██╗ ██║██║      ███████║   ██║   
- ╚██╗ ██╔╝██║   ██║██║     ██║╚██╗██║██║      ██╔══██║   ██║   
-  ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║╚██████╗ ██║  ██║   ██║   
-   ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ` + colorReset + `
+const Banner = colorBold + colorCyan + `
+   ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗ ██████╗  █████╗ ████████╗
+   ██║   ██║██║   ██║██║     ████╗  ██║██╔════╝ ██╔══██╗╚══██╔══╝
+   ██║   ██║██║   ██║██║     ██╔██╗ ██║██║      ███████║   ██║   
+   ╚██╗ ██╔╝██║   ██║██║     ██║╚██╗██║██║      ██╔══██║   ██║   
+    ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║╚██████╗ ██║  ██║   ██║   
+     ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ` + colorReset + `
 
-             Vulnerability Surface Classifier
-                   Author: ` + colorYellow + `whoami_404` + colorReset + `
-         Repository: ` + colorBlue + `github.com/youwannahackme` + colorReset + `
+   ` + colorBold + colorWhite + `⚡ ADVANCED VULNERABILITY SURFACE CLASSIFIER & RECON ENGINE ⚡` + colorReset + `
+   ` + colorCyan + `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` + colorReset + `
+   ` + colorBold + `  • Author     :` + colorReset + colorYellow + ` whoami_404` + colorReset + `
+   ` + colorBold + `  • Repository :` + colorReset + colorCyan + ` github.com/youwannahackme/vulncat` + colorReset + `
+   ` + colorCyan + `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` + colorReset + `
 `
 
 func getCategoryColor(cat string) string {
@@ -173,51 +175,67 @@ func main() {
 		if !silentFlag {
 			fmt.Fprint(os.Stderr, Banner)
 		}
-		fmt.Fprint(os.Stderr, "\nDescription:\n")
-		fmt.Fprint(os.Stderr, "  Vulncat is a high-performance vulnerability-surface URL classifier.\n")
-		fmt.Fprint(os.Stderr, "  It scans query parameters and path segments for heuristics indicating XSS, SQLi, SSRF, LFI, RCE, IDOR, Redirect, SSTI, NoSQLi, CORS, JWT, PrivEsc, XXE, and Proto.\n\n")
+		fmt.Fprintf(os.Stderr, "%sDESCRIPTION:%s\n", colorBold+colorYellow, colorReset)
+		fmt.Fprintf(os.Stderr, "  Vulncat is a high-speed, multi-dimensional vulnerability surface classifier.\n")
+		fmt.Fprintf(os.Stderr, "  It analyzes URL parameters and path structures to identify quantitative heuristic sinks across\n")
+		fmt.Fprintf(os.Stderr, "  14 vulnerability categories: %sSQLi, XSS, SSRF, LFI, RCE, IDOR, Redirect, SSTI, NoSQLi, CORS, JWT, PrivEsc, XXE, Proto%s.\n\n", colorBold+colorWhite, colorReset)
 
-		fmt.Fprint(os.Stderr, "Usage:\n")
-		fmt.Fprint(os.Stderr, "  vulncat [options]\n\n")
+		fmt.Fprintf(os.Stderr, "%sUSAGE:%s\n", colorBold+colorYellow, colorReset)
+		fmt.Fprintf(os.Stderr, "  vulncat [options]\n\n")
 
-		fmt.Fprint(os.Stderr, "Targeting Options:\n")
-		fmt.Fprint(os.Stderr, "  -u, -url <string>       Single URL to classify\n")
-		fmt.Fprint(os.Stderr, "  -l, -list <string>      Path to list file (one URL per line, or '-' for stdin)\n\n")
+		fmt.Fprintf(os.Stderr, "%sTARGETING OPTIONS:%s\n", colorBold+colorCyan, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-u, -url <string>%s       Single target URL to classify\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-l, -list <string>%s      Path to URL list file (one URL per line, or '-' for stdin)\n\n", colorGreen, colorReset)
 
-		fmt.Fprint(os.Stderr, "Optimization & Execution:\n")
-		fmt.Fprint(os.Stderr, "  -c, -concurrency <int>  Number of concurrent workers (default: 20)\n")
-		fmt.Fprint(os.Stderr, "  -min-confidence <int>   Minimum confidence score (0-100) to report (default: 40)\n")
-		fmt.Fprint(os.Stderr, "  -max-per-pattern <int>  Max URLs to report per (host, path, category, param) (default: 5)\n\n")
+		fmt.Fprintf(os.Stderr, "%sEXECUTION & TUNING:%s\n", colorBold+colorCyan, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-c, -concurrency <int>%s  Number of concurrent workers %s(default: 20)%s\n", colorGreen, colorReset, colorYellow, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-min-confidence <int>%s   Minimum confidence threshold (0-100) to emit a match %s(default: 40)%s\n", colorGreen, colorReset, colorYellow, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-max-per-pattern <int>%s  Max URLs kept per unique (host, path, category, param) signature %s(default: 5)%s\n\n", colorGreen, colorReset, colorYellow, colorReset)
 
-		fmt.Fprint(os.Stderr, "Vulnerability Scan Filters:\n")
-		fmt.Fprint(os.Stderr, "  -sqli                   Scan only for SQL Injection surface\n")
-		fmt.Fprint(os.Stderr, "  -xss                    Scan only for Cross-Site Scripting surface\n")
-		fmt.Fprint(os.Stderr, "  -ssrf                   Scan only for Server-Side Request Forgery surface\n")
-		fmt.Fprint(os.Stderr, "  -lfi                    Scan only for Local File Inclusion surface\n")
-		fmt.Fprint(os.Stderr, "  -rce                    Scan only for Remote Code Execution surface\n")
-		fmt.Fprint(os.Stderr, "  -idor                   Scan only for Insecure Direct Object Reference surface\n")
-		fmt.Fprint(os.Stderr, "  -redirect               Scan only for Open Redirect surface\n")
-		fmt.Fprint(os.Stderr, "  -ssti                   Scan only for Server-Side Template Injection surface\n")
-		fmt.Fprint(os.Stderr, "  -nosqli                 Scan only for NoSQL Injection surface\n")
-		fmt.Fprint(os.Stderr, "  -cors                   Scan only for CORS Misconfiguration surface\n")
-		fmt.Fprint(os.Stderr, "  -jwt                    Scan only for JWT surface\n")
-		fmt.Fprint(os.Stderr, "  -privesc                Scan only for Privilege Escalation surface\n")
-		fmt.Fprint(os.Stderr, "  -xxe                    Scan only for XML External Entity (XXE) surface\n")
-		fmt.Fprint(os.Stderr, "  -proto                  Scan only for Prototype Pollution surface\n")
-		fmt.Fprint(os.Stderr, "  -cat <string>           Comma-separated list of categories to scan (e.g. sqli,xss)\n\n")
+		fmt.Fprintf(os.Stderr, "%sVULNERABILITY CATEGORY FILTERS:%s\n", colorBold+colorPurple, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-sqli%s                   Scan only for SQL Injection (SQLi) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-xss%s                    Scan only for Cross-Site Scripting (XSS) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-ssrf%s                   Scan only for Server-Side Request Forgery (SSRF) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-lfi%s                    Scan only for Local File Inclusion / Traversal (LFI) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-rce%s                    Scan only for Remote Code Execution (RCE) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-idor%s                   Scan only for Insecure Direct Object Reference (IDOR) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-redirect%s               Scan only for Open Redirect surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-ssti%s                   Scan only for Server-Side Template Injection (SSTI) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-nosqli%s                 Scan only for NoSQL Injection surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-cors%s                   Scan only for CORS Misconfiguration surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-jwt%s                    Scan only for JSON Web Token (JWT) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-privesc%s                Scan only for Privilege Escalation surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-xxe%s                    Scan only for XML External Entity (XXE) surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-proto%s                  Scan only for Prototype Pollution surface\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-cat <string>%s           Comma-separated list of categories to scan %s(e.g. sqli,xss,proto)%s\n\n", colorGreen, colorReset, colorYellow, colorReset)
 
-		fmt.Fprint(os.Stderr, "Output Options:\n")
-		fmt.Fprint(os.Stderr, "  -o, -output <string>    Output directory for logs and hits (default: \"urlclass_out\")\n")
-		fmt.Fprint(os.Stderr, "  -jsonl                  Output results in JSON Lines (.jsonl) format\n")
-		fmt.Fprint(os.Stderr, "  -s, -silent             Silent mode (suppress banner, logs, and stats; only print matching URLs)\n\n")
+		fmt.Fprintf(os.Stderr, "%sOUTPUT & FORMATTING:%s\n", colorBold+colorCyan, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-o, -output <string>%s    Output directory for category hits and full JSON report %s(default: \"urlclass_out\")%s\n", colorGreen, colorReset, colorYellow, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-jsonl%s                  Output structured JSON Lines (.jsonl) stream to stdout\n", colorGreen, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s-s, -silent%s             Silent mode (suppress banner, logs, and statistics; print only matching URLs)\n\n", colorGreen, colorReset)
 
-		fmt.Fprint(os.Stderr, "Examples:\n")
-		fmt.Fprint(os.Stderr, "  vulncat -u \"https://target.com/search?q=test&id=5\"\n")
-		fmt.Fprint(os.Stderr, "  vulncat -l urls.txt -o results/\n")
-		fmt.Fprint(os.Stderr, "  cat urls.txt | vulncat -silent -sqli\n")
+		fmt.Fprintf(os.Stderr, "%sEXAMPLES:%s\n", colorBold+colorYellow, colorReset)
+		fmt.Fprintf(os.Stderr, "  %s# Classify a single target URL and output details:%s\n", colorPurple, colorReset)
+		fmt.Fprintf(os.Stderr, "  vulncat -u \"https://target.com/search?q=test&id=5\"\n\n")
+		fmt.Fprintf(os.Stderr, "  %s# Scan a massive list of URLs with 50 concurrent workers and save to results/:%s\n", colorPurple, colorReset)
+		fmt.Fprintf(os.Stderr, "  vulncat -l urls.txt -c 50 -o results/\n\n")
+		fmt.Fprintf(os.Stderr, "  %s# Pipe recon URLs from stdin and filter only for SQLi & XSS in JSON Lines format:%s\n", colorPurple, colorReset)
+		fmt.Fprintf(os.Stderr, "  cat recon.txt | vulncat -silent -jsonl -cat sqli,xss\n\n")
 	}
 
 	flag.Parse()
+
+	if concurrencyFlag <= 0 {
+		concurrencyFlag = 20
+	}
+	if maxPerPatternFlag <= 0 {
+		maxPerPatternFlag = 5
+	}
+	if minConfidenceFlag < 0 {
+		minConfidenceFlag = 0
+	} else if minConfidenceFlag > 100 {
+		minConfidenceFlag = 100
+	}
 
 	if !silentFlag {
 		fmt.Fprint(os.Stderr, Banner)
@@ -326,6 +344,9 @@ func main() {
 			defer file.Close()
 			scanner = bufio.NewScanner(file)
 		}
+		const maxBuf = 10 * 1024 * 1024
+		buf := make([]byte, maxBuf)
+		scanner.Buffer(buf, maxBuf)
 
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -362,7 +383,7 @@ func main() {
 	// Aggregator variables
 	categoryURLs := make(map[string][]CategoryConfidencePair)
 	seenGroups := make(map[DedupKey]int)
-	var report []ReportEntry
+	report := []ReportEntry{}
 	var skippedCount int64
 
 	// Collect results from pipeline
@@ -449,6 +470,9 @@ func main() {
 			continue
 		}
 		sort.Slice(entries, func(i, j int) bool {
+			if entries[i].Confidence == entries[j].Confidence {
+				return entries[i].URL < entries[j].URL
+			}
 			return entries[i].Confidence > entries[j].Confidence
 		})
 
